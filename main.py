@@ -8,12 +8,17 @@ from google.cloud.texttospeech_v1beta1.types import SynthesizeSpeechRequest
 
 from pysubs2 import SSAFile, SSAEvent, make_time
 
+import click
+
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 RUNS_DIR = os.path.abspath('runs')
+
+LANGUAGE_CODE = 'cmn-CN'
+VOICE_NAME = 'cmn-CN-Wavenet-C'
 
 
 def text_to_ssml(text: str) -> str:
@@ -61,8 +66,8 @@ def call_text_to_speech_api(ssml: str, api_key: str) -> texttospeech.SynthesizeS
 
     # Build the voice request, select the language code and the ssml voice gender
     voice = texttospeech.VoiceSelectionParams(
-        language_code="cmn-CN",
-        name="cmn-CN-Wavenet-C",
+        language_code=LANGUAGE_CODE,
+        name=VOICE_NAME,
         ssml_gender=texttospeech.SsmlVoiceGender.MALE
     )
 
@@ -142,7 +147,21 @@ def synthesize_speech_from_text(text: str, output_dir: str, api_key: str):
     return segments
 
 
-if __name__ == '__main__':
+@click.command()
+@click.option('--file', '-f', type=click.Path(exists=True), help='Path to the input text file')
+@click.option('--text', '-t', help='Text to synthesize')
+def main(file, text):
+
+    if file and text:
+        logger.error("Please provide either a file or text, not both.")
+        exit(1)
+
+    if file:
+        with open(file, 'r') as f:
+            text = f.read()
+    elif text:
+        text = text
+
     api_key = os.environ.get('GOOGLE_TTS_API_KEY')
 
     if not api_key:
@@ -154,8 +173,9 @@ if __name__ == '__main__':
     output_dir = os.path.join(RUNS_DIR, timestamp)
     os.makedirs(output_dir, exist_ok=True)
 
-    with open('input.txt', 'r') as f:
-        text = f.read()
+    with open(os.path.join(output_dir, 'input.txt'), 'w') as f:
+        f.write(text)
+
     segments = synthesize_speech_from_text(
         text, output_dir, api_key)
 
@@ -174,3 +194,7 @@ if __name__ == '__main__':
     subtitle_file = os.path.join(output_dir, 'subtitles.srt')
     sub.save(subtitle_file)
     logger.info(f"Subtitles written to file '{subtitle_file}'")
+
+
+if __name__ == '__main__':
+    main()
