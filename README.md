@@ -91,6 +91,10 @@ Python支持多种编程范型
 
 
 
+https://github.com/user-attachments/assets/ad42b762-f116-49aa-be67-7e8cf1c1f20a
+
+
+
 ## Limitations
 
 - The tool may incorrectly segment sentences when converting text to SSML, either breaking where it shouldn't or failing to break where necessary.
