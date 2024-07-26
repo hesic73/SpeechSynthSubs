@@ -1,12 +1,19 @@
 import regex as re
 import os
 
+from datetime import datetime
+
 from google.cloud import texttospeech_v1beta1 as texttospeech
 from google.cloud.texttospeech_v1beta1.types import SynthesizeSpeechRequest
+
+from pysubs2 import SSAFile, SSAEvent, make_time
 
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+RUNS_DIR = os.path.abspath('runs')
 
 
 def text_to_ssml(text: str) -> str:
@@ -54,7 +61,9 @@ def call_text_to_speech_api(ssml: str, api_key: str) -> texttospeech.SynthesizeS
 
     # Build the voice request, select the language code and the ssml voice gender
     voice = texttospeech.VoiceSelectionParams(
-        language_code="cmn-CN", ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+        language_code="cmn-CN",
+        name="cmn-CN-Wavenet-C",
+        ssml_gender=texttospeech.SsmlVoiceGender.MALE
     )
 
     # Select the type of audio file you want returned
@@ -84,15 +93,23 @@ def process_response(response: texttospeech.SynthesizeSpeechResponse, ssml: str,
     text_segments = re.split(r'<mark name="mark_\d+"/>', ssml)
     start_time = 0
 
+    # Define unwanted separators
+    unwanted_separators = re.compile(r'^[\p{P}\p{S}\s]+')
+
     for i, segment in enumerate(text_segments):
         segment = re.sub(r'<.*?>', '', segment)  # Remove SSML tags
-        if i < mark_count:
-            end_time = mark_times[f'mark_{i}']
-        else:
-            end_time = None
+        # Remove leading unwanted separators
+        segment = unwanted_separators.sub('', segment)
+        segment = segment.strip()  # Strip leading and trailing whitespace
 
-        segments.append((segment.strip(), start_time, end_time))
-        start_time = end_time
+        if segment:  # Only add non-empty segments
+            if i < mark_count:
+                end_time = mark_times[f'mark_{i}']
+            else:
+                end_time = None
+
+            segments.append((segment, start_time, end_time))
+            start_time = end_time
 
     return segments
 
@@ -102,17 +119,15 @@ def save_audio_to_file(audio_content: bytes, output_file: str):
     with open(output_file, "wb") as out:
         # Write the response to the output file.
         out.write(audio_content)
-        print(f'Audio content written to file "{output_file}"')
+        logger.info(f'Audio content written to file "{output_file}"')
 
 
-def synthesize_speech_from_text(text: str, output_file: str, api_key: str):
+def synthesize_speech_from_text(text: str, output_dir: str, api_key: str):
     # Convert text to SSML
     ssml, mark_count = text_to_ssml(text)
 
-    with open('ssml.txt', 'w') as f:
+    with open(os.path.join(output_dir, 'ssml.txt'), 'w') as f:
         f.write(ssml)
-
-    logger.info("SSML text written to file 'ssml.txt'")
 
     # Call the text-to-speech API
     response = call_text_to_speech_api(ssml, api_key)
@@ -121,22 +136,41 @@ def synthesize_speech_from_text(text: str, output_file: str, api_key: str):
     segments = process_response(response, ssml, mark_count)
 
     # Save the audio content to a file
-    save_audio_to_file(response.audio_content, output_file)
+    save_audio_to_file(response.audio_content,
+                       os.path.join(output_dir, 'output.mp3'))
 
     return segments
 
 
 if __name__ == '__main__':
-    api_key = os.environ.get('GOOGLE_API_KEY')
-    text = """
-    这次午宴上有一道菜叫“烧滑水”，
-    对于不喜欢吃多刺鱼的外宾来说，
-    这道菜并不合适，
-    但毛泽东执意要加上去。
-    就这样，由毛泽东钦点的烧滑水、鱼翅仔鸡、牛排这三个菜，一同端上了尼克松夫妇的餐桌。
-    当尼克松及夫人知道这三道菜是毛泽东及夫人江青特意为他们安排的，感到非常高兴，而且吃得很干净。吃完之后他们连声道谢，并表示感受到了中国人民的好客之情。
-    """
+    api_key = os.environ.get('GOOGLE_TTS_API_KEY')
 
-    segments = synthesize_speech_from_text(text, 'output.mp3', api_key)
+    if not api_key:
+        logger.error(
+            "API key not found. Please set the 'GOOGLE_TTS_API_KEY' environment variable.")
+        exit(1)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H_%M_%S")
+    output_dir = os.path.join(RUNS_DIR, timestamp)
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open('input.txt', 'r') as f:
+        text = f.read()
+    segments = synthesize_speech_from_text(
+        text, output_dir, api_key)
+
+    sub = SSAFile()
     for segment in segments:
-        print(segment)
+        text, start, end = segment
+
+        if end is None:
+            end = start + 5
+            logger.warning(
+                f"End time not found for segment '{text}'. Defaulting to {end} seconds.")
+
+        sub.append(SSAEvent(start=make_time(s=start),
+                   end=make_time(s=end), text=text))
+
+    subtitle_file = os.path.join(output_dir, 'subtitles.srt')
+    sub.save(subtitle_file)
+    logger.info(f"Subtitles written to file '{subtitle_file}'")
