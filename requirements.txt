@@ -1,0 +1,5 @@
+pysubs2
+google-cloud-texttospeech
+regex
+click
+click-option-group

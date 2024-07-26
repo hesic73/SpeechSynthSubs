@@ -1,3 +1,4 @@
+from typing import Optional, List, Tuple
 import regex as re
 import os
 
@@ -9,6 +10,7 @@ from google.cloud.texttospeech_v1beta1.types import SynthesizeSpeechRequest
 from pysubs2 import SSAFile, SSAEvent, make_time
 
 import click
+from click_option_group import optgroup, RequiredMutuallyExclusiveOptionGroup
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 RUNS_DIR = os.path.abspath('runs')
 
-LANGUAGE_CODE = 'cmn-CN'
-VOICE_NAME = 'cmn-CN-Wavenet-C'
+DEFAULT_LANGUAGE_CODE = 'cmn-CN'
+DEFAULT_VOICE_NAME = 'cmn-CN-Wavenet-C'
 
 
 def text_to_ssml(text: str) -> str:
@@ -56,7 +58,7 @@ def text_to_ssml(text: str) -> str:
     return f'<speak>{ssml_text}</speak>', mark_index
 
 
-def call_text_to_speech_api(ssml: str, api_key: str) -> texttospeech.SynthesizeSpeechResponse:
+def call_text_to_speech_api(ssml: str, api_key: str, language_code: str, voice_name: Optional[str] = None) -> texttospeech.SynthesizeSpeechResponse:
     # Instantiates a client
     client = texttospeech.TextToSpeechClient(
         client_options={'api_key': api_key})
@@ -64,11 +66,9 @@ def call_text_to_speech_api(ssml: str, api_key: str) -> texttospeech.SynthesizeS
     # Set the text input to be synthesized
     synthesis_input = texttospeech.SynthesisInput(ssml=ssml)
 
-    # Build the voice request, select the language code and the ssml voice gender
     voice = texttospeech.VoiceSelectionParams(
-        language_code=LANGUAGE_CODE,
-        name=VOICE_NAME,
-        ssml_gender=texttospeech.SsmlVoiceGender.MALE
+        language_code=language_code,
+        name=voice_name,
     )
 
     # Select the type of audio file you want returned
@@ -85,7 +85,7 @@ def call_text_to_speech_api(ssml: str, api_key: str) -> texttospeech.SynthesizeS
     return response
 
 
-def process_response(response: texttospeech.SynthesizeSpeechResponse, ssml: str, mark_count: int) -> list:
+def process_response(response: texttospeech.SynthesizeSpeechResponse, ssml: str, mark_count: int) -> List[Tuple[str, float, Optional[float]]]:
     # Initialize list to hold segments with their start and end times
     segments = []
     mark_times = {f'mark_{i}': None for i in range(mark_count)}
@@ -127,7 +127,7 @@ def save_audio_to_file(audio_content: bytes, output_file: str):
         logger.info(f'Audio content written to file "{output_file}"')
 
 
-def synthesize_speech_from_text(text: str, output_dir: str, api_key: str):
+def synthesize_speech_from_text(text: str, output_dir: str, api_key: str, language_code: str, voice_name: Optional[str] = None) -> List[Tuple[str, float, Optional[float]]]:
     # Convert text to SSML
     ssml, mark_count = text_to_ssml(text)
 
@@ -135,7 +135,8 @@ def synthesize_speech_from_text(text: str, output_dir: str, api_key: str):
         f.write(ssml)
 
     # Call the text-to-speech API
-    response = call_text_to_speech_api(ssml, api_key)
+    response = call_text_to_speech_api(
+        ssml, api_key, language_code, voice_name)
 
     # Process the response to get segments with timestamps
     segments = process_response(response, ssml, mark_count)
@@ -148,13 +149,13 @@ def synthesize_speech_from_text(text: str, output_dir: str, api_key: str):
 
 
 @click.command()
-@click.option('--file', '-f', type=click.Path(exists=True), help='Path to the input text file')
-@click.option('--text', '-t', help='Text to synthesize')
-def main(file, text):
-
-    if file and text:
-        logger.error("Please provide either a file or text, not both.")
-        exit(1)
+@optgroup.group('Input data sources', cls=RequiredMutuallyExclusiveOptionGroup,
+                help='The sources of the input data')
+@optgroup.option('--file', '-f', type=click.Path(exists=True), help='Path to the input text file')
+@optgroup.option('--text', '-t', help='Text to synthesize')
+@click.option('--language-code', '-l', default=DEFAULT_LANGUAGE_CODE, help=f'Language code, defaults to "{DEFAULT_LANGUAGE_CODE}"')
+@click.option('--voice-name', '-v', default=DEFAULT_VOICE_NAME, help=f'Voice name, defaults to "{DEFAULT_VOICE_NAME}"')
+def main(file, text, language_code, voice_name):
 
     if file:
         with open(file, 'r') as f:
@@ -173,11 +174,11 @@ def main(file, text):
     output_dir = os.path.join(RUNS_DIR, timestamp)
     os.makedirs(output_dir, exist_ok=True)
 
-    with open(os.path.join(output_dir, 'input.txt'), 'w') as f:
+    with open(os.path.join(output_dir, 'text.txt'), 'w') as f:
         f.write(text)
 
     segments = synthesize_speech_from_text(
-        text, output_dir, api_key)
+        text, output_dir, api_key, language_code, voice_name)
 
     sub = SSAFile()
     for segment in segments:

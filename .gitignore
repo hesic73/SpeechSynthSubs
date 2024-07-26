@@ -166,3 +166,4 @@ cython_debug/
 *.mp3
 *.srt
 /runs/
+!/requirements.txt

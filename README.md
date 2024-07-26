@@ -1,6 +1,8 @@
 # SpeechSynthSubs
 
-SpeechSynthSubs is a Python application that converts text into spoken audio and synchronizes it with subtitles. It utilizes Google's Text-to-Speech API for audio synthesis and the `pysubs2` library to create subtitle files in the `.srt` format.
+SpeechSynthSubs is a Python application that converts text into spoken audio and synchronizes it with subtitles. It utilizes Google's Text-to-Speech API for audio synthesis and the [pysubs2](https://github.com/tkarabela/pysubs2) library to create subtitle files in the `.srt` format.
+
+**Note**: This script is primarily tested with Chinese text, and the default language code is set to **Chinese**. If you are working with other languages, make sure to adjust the language settings accordingly.
 
 ## Prerequisites
 
@@ -35,7 +37,19 @@ python main.py -f path/to/your/file.txt
 python main.py -t "Your text string here."
 ```
 
-This will generate an audio file (`output.mp3`) and a subtitle file (`subtitles.srt`) in a directory under `runs/` labeled with the current timestamp.
+This will generate an audio file (`output.mp3`) and a subtitle file (`subtitles.srt`) in a directory under `runs/` labeled with the current timestamp. 
+
+You can also specify the language code and voice name to customize the speech synthesis (Mandarin Chinese by default):
+
+```bash
+python main.py -f path/to/your/file.txt -l en-US -v en-US-Wavenet-D
+```
+
+For more options and detailed usage information, run:
+
+```bash
+python main.py --help
+```
 
 ## Example
 
@@ -89,11 +103,7 @@ Python支持多种编程范型
 
 ### Audio Output
 
-
-
 https://github.com/user-attachments/assets/ad42b762-f116-49aa-be67-7e8cf1c1f20a
-
-
 
 ## Limitations
 
@@ -101,7 +111,9 @@ https://github.com/user-attachments/assets/ad42b762-f116-49aa-be67-7e8cf1c1f20a
 
 ## Appendix
 
-- Supported Chinese Voices:https://cloud.google.com/text-to-speech/docs/voices
+### Supported Chinese Voices
+
+The following table lists the supported Chinese voices available in the Google Cloud Text-to-Speech API:
 
 | Language         | Voice type | Language code | Voice name        | SSML gender |
 | ---------------- | ---------- | ------------- | ----------------- | ----------- |
@@ -113,3 +125,5 @@ https://github.com/user-attachments/assets/ad42b762-f116-49aa-be67-7e8cf1c1f20a
 | Mandarin Chinese | Premium    | cmn-CN        | cmn-CN-Wavenet-B  | MALE        |
 | Mandarin Chinese | Premium    | cmn-CN        | cmn-CN-Wavenet-C  | MALE        |
 | Mandarin Chinese | Premium    | cmn-CN        | cmn-CN-Wavenet-D  | FEMALE      |
+
+For more information on the voices available and their capabilities, please refer to the [Google Cloud Text-to-Speech Documentation](https://cloud.google.com/text-to-speech/docs/voices).
