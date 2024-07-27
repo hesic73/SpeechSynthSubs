@@ -2,7 +2,7 @@
 
 SpeechSynthSubs is a Python application that converts text into spoken audio and synchronizes it with subtitles. It utilizes Google's Text-to-Speech API for audio synthesis and the [pysubs2](https://github.com/tkarabela/pysubs2) library to create subtitle files in the `.srt` format.
 
-**Note**: This script is primarily tested with Chinese text, and the default language code is set to **Chinese**. If you are working with other languages, make sure to adjust the language settings accordingly.
+**Note**: Defaults are set to **Chinese**, and the script is primarily tested with Chinese text. Adjust settings if using other languages.
 
 ## Prerequisites
 
@@ -28,6 +28,16 @@ pip install -r requirements.txt
 export GOOGLE_TTS_API_KEY='your_api_key_here'
 ```
 
+### Download SpaCy Package
+
+By default, this tool uses Chinese, but SpaCy supports other languages. To download the package for Chinese:
+
+```
+python -m spacy download zh_core_web_sm
+```
+
+See [SpaCy Usage](https://spacy.io/usage) for more details.
+
 ## Usage
 
 The tool supports input either via a text file or directly as a string:
@@ -38,12 +48,6 @@ python main.py -t "Your text string here."
 ```
 
 This will generate an audio file (`output.mp3`) and a subtitle file (`subtitles.srt`) in a directory under `runs/` labeled with the current timestamp. 
-
-You can also specify the language code and voice name to customize the speech synthesis (Mandarin Chinese by default):
-
-```bash
-python main.py -f path/to/your/file.txt -l en-US -v en-US-Wavenet-D
-```
 
 For more options and detailed usage information, run:
 
@@ -104,10 +108,6 @@ Python支持多种编程范型
 ### Audio Output
 
 https://github.com/user-attachments/assets/ad42b762-f116-49aa-be67-7e8cf1c1f20a
-
-## Limitations
-
-- The tool may incorrectly segment sentences when converting text to SSML, either breaking where it shouldn't or failing to break where necessary.
 
 ## Appendix
 

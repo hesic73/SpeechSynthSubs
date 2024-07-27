@@ -1,5 +1,5 @@
 pysubs2
 google-cloud-texttospeech
-regex
+spacy
 click
 click-option-group
